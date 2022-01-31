@@ -8,6 +8,12 @@ contract Freelancer {
     string expertise_category;
     uint reputation;
 
+    constructor(string memory _name, string memory _expertise_category) {
+        name = _name;
+        expertise_category = _expertise_category;
+        reputation = 5;
+    }
+
     function subscribe_to_task(address payable marketplace, uint task_id) public {
         // marketplace -> subscribe_freelancer_to_task
     }
@@ -17,10 +23,30 @@ contract Freelancer {
     }
 
     function increase_reputation() public {
-        // ignore if reputation = 10
+        if (reputation == 10) {
+            return;
+        }
+
+        reputation = reputation + 1;
     }
 
     function decrease_reputation() public {
-        // ignore if reputation = 1
+        if (reputation == 1) {
+            return;
+        }
+
+        reputation = reputation - 1;
+    }
+
+    function get_name() public view returns (string memory) {
+        return name;
+    }
+
+    function get_expertise_category() public view returns (string memory) {
+        return expertise_category;
+    }
+
+    function get_reputation() public view returns (uint) {
+        return reputation;
     }
 }

@@ -11,10 +11,11 @@ import "./Manager.sol";
 import "./Evaluator.sol";
 import "./Freelancer.sol";
 import "./Funder.sol";
+import "./Token.sol";
 
 contract Marketplace {
 
-    enum TaskState {Funding, Open, Executing, Evaluation, Arbitration, Success, Fail, Cancel}
+    enum TaskState {Funding, Open, Executing, Evaluation, Arbitration, Success, Fail, Canceled}
 
     struct FunderContribution{
         uint256 sum;
@@ -28,11 +29,11 @@ contract Marketplace {
         uint256 freelancer_reward;
         uint256 evaluator_reward;
         string domain;
-        address payable manager;
 
         // maybe use mapping here
         FunderContribution[] funders;
 
+        Manager manager;
         Evaluator evaluator;
         Freelancer executor_freelancer;
         Freelancer[] subscribed_freelancers;
@@ -44,10 +45,12 @@ contract Marketplace {
     mapping(address => Evaluator) evaluators;
     mapping(address => Funder) funders;
 
+    Token token;
+
     function create_task(
         address payable manager, 
-        string description, 
-        string domain,
+        string memory description, 
+        string memory domain,
         uint256 freelancer_reward,
         uint256 evaluator_reward) public {}
 
@@ -103,7 +106,6 @@ contract Marketplace {
             // add freelancer in task.freelancers
             // get freelancer guarantee = evaluator_reward
         }
-    )
 
     function assign_freelancer(
         uint task_id,
@@ -120,7 +122,7 @@ contract Marketplace {
     }
 
     function mark_task_as_ready_for_evaluation(
-        uint task_id.
+        uint task_id,
         address payable manager
     ) public {
         // require task.state in Executing
@@ -131,57 +133,110 @@ contract Marketplace {
 
     function evaluate_task(
         uint task_id,
-        address payable manager,
+        address _manager,
         bool verdict
     ) public {
-        // require task.state in Evaluation
-        // require task.manager = manager
+        require(tasks[task_id].task_id == task_id, "There is no task with this id!");
+        require(tasks[task_id].state == TaskState.Evaluation, "This task is not in the right state to be evaluated!");
+        require(address(tasks[task_id].manager) == _manager, "The task cannot be evaluated by this manager!");
 
-        //if verdict == true -> handle_task_evaluation_success(task_id)
-        //else set task.state = Arbitration
+        if (verdict == true) {
+            handle_task_arbitration_success(task_id);
+        } 
+        else {
+            tasks[task_id].state = TaskState.Arbitration;
+        }
     }
 
-    function handle_task_evaluation_success(uint task_id) private {
+    function handle_task_evaluation_success(uint task_id) private {        
         // mark task.state as Success
         // pay freelancer_reward + evaluator_reward + freelancer_guarantee to the freelancer
         // increase freelancer reputation
+
+        tasks[task_id].state = TaskState.Success;
+
+        uint256 reward = tasks[task_id].freelancer_reward + 2 * tasks[task_id].evaluator_reward;
+
+        token.transferFrom(address(this), address(tasks[task_id].executor_freelancer), reward);
+        tasks[task_id].executor_freelancer.increase_reputation();
     }
 
     function arbitrate_task(
         uint task_id,
-        address payable evaluator,
+        address _evaluator,
         bool verdict
     ) public {
-        // require task.state in Arbitration
-        // require task.evaluator = evaluator
+        require(tasks[task_id].task_id == task_id, "There is no task with this id!");
+        require(tasks[task_id].state == TaskState.Arbitration, "This task is not in the right state to be arbitrated!");
+        require(address(tasks[task_id].evaluator) == _evaluator, "The task cannot be evaluated by this evaluator!");
 
-        // if verdict == true -> handle_task_arbitration_success(task_id)
-        // else handle_task_arbitration_fail(task_id)
+        if (verdict == true) {
+            handle_task_arbitration_success(task_id);
+        } 
+
+        handle_task_arbitration_fail(task_id);
     }
 
-    function handle_task_arbitration_success(task_id) private {
+    function handle_task_arbitration_success(uint task_id) private {
         // send freelancer_reward + guarantee to freelancer
         // increase freelancer reputation
         // send evaluator_reward to evaluator
         // mark task.state as Success
 
+        tasks[task_id].state = TaskState.Success;
+
+        uint256 freelancer_reward = tasks[task_id].freelancer_reward + tasks[task_id].evaluator_reward;
+        uint256 evaluator_reward = tasks[task_id].evaluator_reward;
+
+        token.transferFrom(address(this), address(tasks[task_id].executor_freelancer), freelancer_reward);
+        token.transferFrom(address(this), address(tasks[task_id].evaluator), evaluator_reward);
+        tasks[task_id].executor_freelancer.increase_reputation();
     }
 
-    function handle_task_arbitration_fail private {
+    function handle_task_arbitration_fail(uint task_id) private {
         // return freelancer_reward + evaluator_reward to funders
         // decrease freelancer reputation
         // send freelancer guarantee to evaluator
         // mark task.state as Fail
+
+        tasks[task_id].state = TaskState.Fail;
+        tasks[task_id].executor_freelancer.decrease_reputation();
+
+        uint256 evaluator_reward = tasks[task_id].evaluator_reward;
+        token.transferFrom(address(this), address(tasks[task_id].evaluator), evaluator_reward);
+
+        uint fundersLength = tasks[task_id].funders.length;
+
+        for (uint i=0; i < fundersLength; i++) {
+            token.transferFrom(
+                address(this), 
+                address(tasks[task_id].funders[i].funder), 
+                tasks[task_id].funders[i].sum
+                );
+        }
     }
 
     function cancel_task(
         uint task_id,
-        address payable manager
+        address _manager
     ) public {
-        // require task.state in Funding
-        // require task.manager = manager
+        require(tasks[task_id].task_id == task_id, "There is no task with this id!");
+        require(tasks[task_id].state == TaskState.Funding, "This task is not in the right state to be canceled!");
+        require(address(tasks[task_id].manager) == _manager, "The task cannot be canceled by this manager!");
         
         // return contributions back to funders
         // mark task as Canceled
+
+        uint fundersLength = tasks[task_id].funders.length;
+
+        for (uint i=0; i < fundersLength; i++) {
+            token.transferFrom(
+                address(this), 
+                address(tasks[task_id].funders[i].funder), 
+                tasks[task_id].funders[i].sum
+                );
+        }
+
+        tasks[task_id].state = TaskState.Canceled;
     }
 }

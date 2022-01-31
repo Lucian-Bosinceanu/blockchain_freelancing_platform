@@ -1,7 +1,7 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.8.0;
 
-import "./IERC20.sol";
-import "../../math/SafeMath.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
  * @title Standard ERC20 token
@@ -10,7 +10,7 @@ import "../../math/SafeMath.sol";
  * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20.md
  * Originally based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
  */
-contract ERC20 is IERC20 {
+contract Token is IERC20 {
   using SafeMath for uint256;
 
   mapping (address => uint256) private _balances;
@@ -165,7 +165,7 @@ contract ERC20 is IERC20 {
    * @param amount The amount that will be created.
    */
   function _mint(address account, uint256 amount) internal {
-    require(account != 0);
+    require(account != address(0x0));
     _totalSupply = _totalSupply.add(amount);
     _balances[account] = _balances[account].add(amount);
     emit Transfer(address(0), account, amount);
@@ -178,7 +178,7 @@ contract ERC20 is IERC20 {
    * @param amount The amount that will be burnt.
    */
   function _burn(address account, uint256 amount) internal {
-    require(account != 0);
+    require(account != address(0x0));
     require(amount <= _balances[account]);
 
     _totalSupply = _totalSupply.sub(amount);
