@@ -78,14 +78,32 @@ contract Marketplace {
 
     function add_funder_contribution_to_task(
         uint task_id,
-        address payable funder,
+        address funder,
         uint256 sum
     ) public {
-        // require task.state in Funding
-        // require funder in funders
-        // require funder has sum
+        Task memory task = tasks[task_id];
+        require(tasks[task_id].state == TaskState.Open, "The task is not open anymore.");
+        require(address(funders[funder]) != address(0x0), "The funder is not registered in the marketplace.");
 
-        // add funder to task funders
+        uint payover = 0;
+        uint totalContributions = 0;
+        for (uint i=0; i < task.funders.length; i++) {
+            totalContributions += task.funders[i].sum;
+        }
+
+        if (totalContributions >= (task.freelancer_reward + task.evaluator_reward)) {
+            revert("The contribution sum was already reached.");
+            // already done
+        }
+
+        if (sum > (task.freelancer_reward + task.evaluator_reward)) {
+            // need to send some tokens back to the funder
+            payover = sum - (task.freelancer_reward + task.evaluator_reward);
+        }
+
+        FunderContribution memory contribution = FunderContribution({sum: sum - payover, funder: funders[funder]});
+        task.funders.push(contribution);
+        token.transferFrom(funder, address(tasks[task_id].executor_freelancer), task.freelancer_reward);
     }
 
     function assign_evaluator(
