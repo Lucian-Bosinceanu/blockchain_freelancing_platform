@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -22,7 +24,7 @@ contract Token is IERC20 {
   /**
   * @dev Total number of tokens in existence
   */
-  function totalSupply() public view returns (uint256) {
+  function totalSupply() override public view returns (uint256) {
     return _totalSupply;
   }
 
@@ -31,7 +33,7 @@ contract Token is IERC20 {
   * @param owner The address to query the balance of.
   * @return An uint256 representing the amount owned by the passed address.
   */
-  function balanceOf(address owner) public view returns (uint256) {
+  function balanceOf(address owner) override public view returns (uint256) {
     return _balances[owner];
   }
 
@@ -45,6 +47,7 @@ contract Token is IERC20 {
     address owner,
     address spender
    )
+    override
     public
     view
     returns (uint256)
@@ -57,7 +60,7 @@ contract Token is IERC20 {
   * @param to The address to transfer to.
   * @param value The amount to be transferred.
   */
-  function transfer(address to, uint256 value) public returns (bool) {
+  function transfer(address to, uint256 value) override public returns (bool) {
     require(value <= _balances[msg.sender]);
     require(to != address(0));
 
@@ -76,7 +79,7 @@ contract Token is IERC20 {
    * @param spender The address which will spend the funds.
    * @param value The amount of tokens to be spent.
    */
-  function approve(address spender, uint256 value) public returns (bool) {
+  function approve(address spender, uint256 value) override public returns (bool) {
     require(spender != address(0));
 
     _allowed[msg.sender][spender] = value;
@@ -95,6 +98,7 @@ contract Token is IERC20 {
     address to,
     uint256 value
   )
+    override
     public
     returns (bool)
   {

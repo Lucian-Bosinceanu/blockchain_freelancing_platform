@@ -2,20 +2,25 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+import "./Marketplace.sol";
+
 contract Freelancer {
 
     string name;
     string expertise_category;
     uint reputation;
+    Marketplace marketplace;
 
-    constructor(string memory _name, string memory _expertise_category) {
+    constructor(string memory _name, string memory _expertise_category, address _marketplace) {
         name = _name;
         expertise_category = _expertise_category;
         reputation = 5;
+        marketplace = Marketplace(_marketplace);
+        marketplace.add_freelancer(payable(address(this)));
     }
-
-    function subscribe_to_task(address payable marketplace, uint task_id) public {
-        // marketplace -> subscribe_freelancer_to_task
+    
+    function subscribe_to_task(uint task_id) public {
+        marketplace.subscribe_freelancer_to_task(task_id, (payable(address(this))));
     }
 
     function notify_manager(address manager, uint task_id) public {
