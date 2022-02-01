@@ -102,15 +102,16 @@ contract Marketplace {
 
     function subscribe_freelancer_to_task(
         uint task_id,
-        address payable freelancer) public payable {
+        address payable freelancer) public {
             require(tasks[task_id].isPresent, "Subscribe freelancer method called on invalid task id.");
             require(tasks[task_id].state == TaskState.Open, "Task is not in OPEN state.");
             require(abi.encodePacked(freelancers[freelancer]).length > 0, "Freelancer is not registered.");
-            require(msg.value == tasks[task_id].evaluator_reward, "The freelancer guarantee must be equal to the evaluator reward");
+            require(token.balanceOf(freelancer) > tasks[task_id].evaluator_reward, "The freelancer does not have enough tokens for the guarantee");
             require(keccak256(abi.encodePacked(freelancers[freelancer].get_expertise_category())) == keccak256(abi.encodePacked(tasks[task_id].domain)), "Freelancer expertize and task domain are different.");
 
             tasks[task_id].subscribed_freelancers[freelancer] = freelancers[freelancer];
             tasks[task_id].freelancer_addresses.push(freelancer);
+            token.transferFrom(freelancer, address(this), tasks[task_id].evaluator_reward);
         }
 
     function assign_freelancer(
@@ -132,7 +133,7 @@ contract Marketplace {
         for (uint i=0; i<tasks[task_id].freelancer_addresses.length; i++) {
             address payable freelancer_address = tasks[task_id].freelancer_addresses[i];
             if (freelancer_address != _freelancer) {
-                freelancer_address.transfer(tasks[task_id].evaluator_reward);
+                token.transferFrom(address(this), freelancer_address, tasks[task_id].freelancer_reward);
             }
         }
     }
