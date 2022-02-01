@@ -3,6 +3,7 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import "./Marketplace.sol";
+import "./Manager.sol";
 
 contract Freelancer {
 
@@ -16,15 +17,16 @@ contract Freelancer {
         expertise_category = _expertise_category;
         reputation = 5;
         marketplace = Marketplace(_marketplace);
-        marketplace.add_freelancer(payable(address(this)));
+        marketplace.add_freelancer(address(this));
     }
     
     function subscribe_to_task(uint task_id) public {
-        marketplace.subscribe_freelancer_to_task(task_id, (payable(address(this))));
+        marketplace.subscribe_freelancer_to_task(task_id, (address(this)));
     }
 
-    function notify_manager(address manager, uint task_id) public {
-        // manager -> mark_task_as_ready_for_evaluation
+    function notify_manager(address _marketplace, uint task_id, address _manager) public {
+        Manager manager = Manager(_manager);
+        manager.mark_task_as_ready_for_evaluation(_marketplace, task_id, address(this));
     }
 
     function increase_reputation() public {

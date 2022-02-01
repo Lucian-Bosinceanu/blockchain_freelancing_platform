@@ -6,26 +6,28 @@ import "./Marketplace.sol";
 
 contract Manager {
     function create_task(
-        address payable marketplace, 
+        address marketplace, 
         string memory description,
         string memory domain,
         uint256 freelancer_reward,
         uint256 evaluator_reward) public {}
 
     function assign_evaluator(
-        address payable marketplace, 
+        address _marketplace, 
         uint task_id, 
-        address payable evaluator
+        address evaluator
         ) public {
-            // calls marketplace -> assign_evaluator
+            Marketplace marketplace = Marketplace(_marketplace);
+            marketplace.assign_evaluator(task_id, address(this), evaluator);
         }
 
     function assign_freelancer(
-        address payable marketplace, 
+        address _marketplace, 
         uint task_id, 
-        address payable freelancer
+        address freelancer
         ) public {
-            // calls marketplace -> assign_freelancer
+            Marketplace marketplace = Marketplace(_marketplace);
+            marketplace.assign_freelancer(task_id, address(this), freelancer);
         }
 
     function evaluate_task(
@@ -38,9 +40,10 @@ contract Manager {
         }
 
     function mark_task_as_ready_for_evaluation(
-        address payable marketplace, 
+        address _marketplace, 
         uint task_id,
-        address payable freelancer) public {
-            // calls marketplace -> mark_task_as_ready_for_evaluation
+        address freelancer) public {
+            Marketplace marketplace = Marketplace(_marketplace);
+            marketplace.mark_task_as_ready_for_evaluation(task_id, address(this), freelancer);
         }
 }
