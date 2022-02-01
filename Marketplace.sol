@@ -50,30 +50,72 @@ contract Marketplace {
     Token token;
 
     function create_task(
-        address payable manager, 
-        string memory description, 
-        string memory domain,
+        address  manager, 
+        string calldata description, 
+        string calldata domain,
         uint256 freelancer_reward,
-        uint256 evaluator_reward) public {}
+        uint256 evaluator_reward) public returns (Task memory){
 
-    function list_tasks() public {}
+        FunderContribution[] memory empty_funders;
+        Evaluator no_evaluator;
+        Freelancer no_executing_freelancer;
+        Freelancer[] memory no_subscribed_freelancers;
 
-    function add_freelancer(address payable freelancer) public {
+        last_task_id += 1; // id generation?
+        Task memory task = Task({
+            task_id: last_task_id,
+            state: TaskState.Open,
+            description: description,
+            domain: domain,
+            manager: manager,
+            freelancer_reward: freelancer_reward,
+            evaluator_reward: evaluator_reward,
+            funders: empty_funders,
+            evaluator: no_evaluator,
+            executor_freelancer: no_executing_freelancer,
+            subscribed_freelancers: no_subscribed_freelancers
+        });
+        tasks[last_task_id] = task; 
+        tasks_ids.push(last_task_id);
+        return task;
+    }
+
+    // function list_tasks() public returns (Task[] memory) {
+    //     Task[] memory task_values;
+    //     for (uint i = 0; i < tasks_ids.length; i++){
+    //         Task memory current_task = tasks[tasks_ids[i]];
+    //         task_values.push(Task({
+    //             task_id: current_task.task_id,
+    //             state: current_task.state,
+    //             description: current_task.description,
+    //             domain: current_task.domain,
+    //             manager: current_task.manager,
+    //             freelancer_reward: current_task.freelancer_reward,
+    //             evaluator_reward: current_task.evaluator_reward,
+    //             funders: current_task.funders,
+    //             evaluator: current_task.evaluator,
+    //             executor_freelancer: current_task.executor_freelancer,
+    //             subscribed_freelancers: current_task.subscribed_freelancers
+    //         }));
+    //     }
+    //     return task_values;
+    // }
+
+    function add_freelancer(address freelancer) public {
         require(abi.encodePacked(freelancers[freelancer]).length == 0, "Freelancer already registered.");
-
         freelancers[freelancer] = Freelancer(freelancer);
     }
 
     function add_manager(address payable manager) public {
-        // add to managers mapping
+        managers[manager] = Manager(manager);
     }
 
     function add_evaluator(address payable evaluator) public {
-        // add to evaluators mapping
+        evaluators[evaluator] = Evaluator(evaluator);
     }
 
     function add_funder(address payable funder) public {
-        // add to funders mapping
+        funders[funder] = Funder(funder);
     }
 
     function add_funder_contribution_to_task(
