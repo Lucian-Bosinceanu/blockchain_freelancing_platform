@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 
 pragma solidity >=0.7.0 <0.9.0;
+pragma abicoder v2;
 
 /**
  * @title Storage
@@ -12,37 +13,39 @@ import "./Evaluator.sol";
 import "./Freelancer.sol";
 import "./Funder.sol";
 import "./Token.sol";
+import "./utils.sol";
+
+
+enum TaskState {Funding, Open, Executing, Evaluation, Arbitration, Success, Fail, Canceled}
+
+struct FunderContribution{
+    uint256 sum;
+    Funder funder;
+}
+
+struct Task {
+    uint task_id;
+    bool isPresent;
+    TaskState state;
+    string description;
+    uint256 freelancer_reward;
+    uint256 evaluator_reward;
+    string domain;
+
+    // maybe use mapping here
+    FunderContribution[] funders;
+
+    Manager manager;
+    Evaluator evaluator;
+    Freelancer executor_freelancer;
+    mapping(address => Freelancer) subscribed_freelancers;
+    address[] freelancer_addresses;
+}
 
 contract Marketplace {
-
-    enum TaskState {Funding, Open, Executing, Evaluation, Arbitration, Success, Fail, Canceled}
-
-    struct FunderContribution{
-        uint256 sum;
-        Funder funder;
-    }
-
-    struct Task {
-        uint task_id;
-        bool isPresent;
-        TaskState state;
-        string description;
-        uint256 freelancer_reward;
-        uint256 evaluator_reward;
-        string domain;
-
-        // maybe use mapping here
-        FunderContribution[] funders;
-
-        Manager manager;
-        Evaluator evaluator;
-        Freelancer executor_freelancer;
-        mapping(address => Freelancer) subscribed_freelancers;
-        address[] freelancer_addresses;
-    }
-
     mapping(uint => Task) tasks;
     mapping(address => Freelancer) freelancers;
+    address[] freelancers_addresses;
     mapping(address => Manager) managers;
     mapping(address => Evaluator) evaluators;
     mapping(address => Funder) funders;
@@ -96,8 +99,19 @@ contract Marketplace {
     // }
 
     function add_freelancer(address freelancer) public {
-        require(abi.encodePacked(freelancers[freelancer]).length == 0, "Freelancer already registered.");
+        require(freelancers[freelancer] == Freelancer(address(0x0)), "Freelancer already registered.");
         freelancers[freelancer] = Freelancer(freelancer);
+        freelancers_addresses.push(freelancer);
+    }
+
+    function list_freelancers() public view returns (Freelancer[] memory) {
+        Freelancer[] memory freelancers_to_return = new Freelancer[](freelancers_addresses.length);
+        Freelancer current_freelancer;
+        for (uint i = 0; i < freelancers_addresses.length; i++){
+            current_freelancer = freelancers[freelancers_addresses[i]];
+            freelancers_to_return[i] = current_freelancer;
+        }
+        return freelancers_to_return;
     }
 
     function add_manager(address manager) public {

@@ -6,13 +6,15 @@ import "./Marketplace.sol";
 import "./Manager.sol";
 
 contract Freelancer {
-
     string name;
     string expertise_category;
     uint reputation;
     Marketplace marketplace;
 
-    constructor(string memory _name, string memory _expertise_category, address _marketplace) {
+    constructor(string memory _name,
+        string memory _expertise_category,
+        address _marketplace
+    ) {
         name = _name;
         expertise_category = _expertise_category;
         reputation = 5;
