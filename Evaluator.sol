@@ -8,18 +8,18 @@ contract Evaluator {
 
     string name;
     string expertise_category;
+    address marketplace;
 
     constructor(string memory _name, string memory _expertise_category, address _marketplace) {
         name = _name;
         expertise_category = _expertise_category;
+        marketplace = _marketplace;
 
-        Marketplace marketplace = Marketplace(_marketplace);
-        marketplace.add_evaluator((address(this)));
+        Marketplace(marketplace).add_evaluator((address(this)));
     }
 
-    function arbitrate_task(address _marketplace, uint task_id, bool verdict) public {
-        Marketplace marketplace = Marketplace(_marketplace);
-        marketplace.arbitrate_task(task_id, address(this), verdict);
+    function arbitrate_task(uint task_id, bool verdict) public {
+        Marketplace(marketplace).arbitrate_task(task_id, address(this), verdict);
     }    
 
     function get_name() public view returns (string memory) {

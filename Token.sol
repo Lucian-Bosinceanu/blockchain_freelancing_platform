@@ -28,6 +28,10 @@ contract Token is IERC20 {
     return _totalSupply;
   }
 
+  function mint_account(address account, uint amount) public {
+    _mint(account, amount);
+  }
+
   /**
   * @dev Gets the balance of the specified address.
   * @param owner The address to query the balance of.

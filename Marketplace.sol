@@ -15,6 +15,8 @@ import "./Funder.sol";
 import "./Token.sol";
 import "./utils.sol";
 
+import "hardhat/console.sol";
+
 
 enum TaskState {Funding, Open, Executing, Evaluation, Arbitration, Success, Fail, Canceled}
 
@@ -25,7 +27,7 @@ struct FunderContribution{
 
 struct Task {
     uint task_id;
-    bool isPresent;
+    bool is_present;
     TaskState state;
     string description;
     uint256 freelancer_reward;
@@ -44,6 +46,8 @@ struct Task {
 
 contract Marketplace {
     mapping(uint => Task) tasks;
+    mapping(TaskState => string) task_state_names;
+
     mapping(address => Freelancer) freelancers;
     address[] freelancers_addresses;
     mapping(address => Manager) managers;
@@ -55,26 +59,53 @@ contract Marketplace {
     uint last_task_id;
 
     constructor(address _token) {
-        last_task_id = 1;
+        last_task_id = 0;
         token = Token(_token);
+
+        task_state_names[TaskState.Funding] = "Funding";
+        task_state_names[TaskState.Open] = "Open";
+        task_state_names[TaskState.Executing] = "Executing";
+        task_state_names[TaskState.Evaluation] = "Evaluation";
+        task_state_names[TaskState.Arbitration] = "Arbitration";
+        task_state_names[TaskState.Success] = "Success";
+        task_state_names[TaskState.Fail] = "Fail";
+        task_state_names[TaskState.Canceled] = "Canceled";
+
+        token.mint_account(address(this), 5000);
     }
 
     function create_task(
         address manager, 
-        string calldata description, 
-        string calldata domain,
+        string memory description, 
+        string memory domain,
         uint256 freelancer_reward,
-        uint256 evaluator_reward) public {
+        uint256 evaluator_reward) public returns (uint) {
 
         last_task_id += 1;
         Task storage task = tasks[last_task_id];
         task.task_id = last_task_id;
-        task.state = TaskState.Open;
+        task.state = TaskState.Funding;
         task.description = description;
         task.domain = domain;
         task.manager = Manager(manager);
         task.freelancer_reward = freelancer_reward;
         task.evaluator_reward = evaluator_reward;
+        task.is_present = true;
+
+        return last_task_id;
+    }
+
+    function list_task_with_id(uint id) public view {
+        require(tasks[id].is_present == true, "There is no task with this id!");
+        console.log(string(abi.encodePacked("Status: ", task_state_names[tasks[id].state])));
+        console.log(string(abi.encodePacked("Domain: ", tasks[id].domain)));
+        console.log(string(abi.encodePacked("Description: ", tasks[id].description)));
+        
+        console.log("Freelancer Reward: ");
+        console.log(tasks[id].freelancer_reward);
+
+        console.log("Evaluator Reward: ");
+        console.log(tasks[id].evaluator_reward);
     }
 
     // function list_tasks() public returns (Task[] memory) {
@@ -102,6 +133,8 @@ contract Marketplace {
         require(freelancers[freelancer] == Freelancer(address(0x0)), "Freelancer already registered.");
         freelancers[freelancer] = Freelancer(freelancer);
         freelancers_addresses.push(freelancer);
+
+        token.mint_account(freelancer, 1000);
     }
 
     function list_freelancers() public view returns (Freelancer[] memory) {
@@ -116,23 +149,30 @@ contract Marketplace {
 
     function add_manager(address manager) public {
         managers[manager] = Manager(manager);
+
+        token.mint_account(manager, 1000);
     }
 
     function add_evaluator(address evaluator) public {
         evaluators[evaluator] = Evaluator(evaluator);
+
+        token.mint_account(evaluator, 1000);
     }
 
     function add_funder(address funder) public {
         funders[funder] = Funder(funder);
+
+        token.mint_account(funder, 1000);
     }
 
     function add_funder_contribution_to_task(
         uint task_id,
         address funder,
         uint256 sum
-    ) public {
+    ) public payable{
         Task storage task = tasks[task_id];
-        require(tasks[task_id].state == TaskState.Open, "The task is not open anymore.");
+        require(tasks[task_id].is_present == true, "Task not found!");
+        require(tasks[task_id].state == TaskState.Funding, "The task can no longer be funded.");
         require(address(funders[funder]) != address(0x0), "The funder is not registered in the marketplace.");
 
         uint payover = 0;
@@ -146,6 +186,12 @@ contract Marketplace {
             // already done
         }
 
+        // TODO
+        // Nu e okay de aici in jos
+        // consideram funding_goal = task.freelancer_reward + task.evaluator_reward
+        // daca totalContributions + sum este mai mare decat funding goal, atunci se transfera de la funder la markerplace funding_goal - totalContributions
+        // tot ce este peste funding_goal se va transfera inapoi catre funder
+
         if (sum > (task.freelancer_reward + task.evaluator_reward)) {
             // need to send some tokens back to the funder
             payover = sum - (task.freelancer_reward + task.evaluator_reward);
@@ -153,7 +199,7 @@ contract Marketplace {
 
         FunderContribution memory contribution = FunderContribution({sum: sum - payover, funder: funders[funder]});
         task.funders.push(contribution);
-        token.transferFrom(funder, address(tasks[task_id].executor_freelancer), task.freelancer_reward);
+        // token.transferFrom(funder, address(this), task.freelancer_reward);
     }
 
     function assign_evaluator(
@@ -173,7 +219,7 @@ contract Marketplace {
     function subscribe_freelancer_to_task(
         uint task_id,
         address freelancer) public {
-            require(tasks[task_id].isPresent, "Subscribe freelancer method called on invalid task id.");
+            require(tasks[task_id].is_present, "Subscribe freelancer method called on invalid task id.");
             require(tasks[task_id].state == TaskState.Open, "Task is not in OPEN state.");
             require(abi.encodePacked(freelancers[freelancer]).length > 0, "Freelancer is not registered.");
             require(token.balanceOf(freelancer) > tasks[task_id].evaluator_reward, "The freelancer does not have enough tokens for the guarantee");
@@ -189,7 +235,7 @@ contract Marketplace {
         address _manager,
         address _freelancer
     ) public {
-        require(tasks[task_id].isPresent, "Assign freelancer method called on invalid task id.");
+        require(tasks[task_id].is_present, "Assign freelancer method called on invalid task id.");
         require(tasks[task_id].state == TaskState.Open, "Task is not in OPEN state.");
         require(abi.encodePacked(freelancers[_freelancer]).length > 0, "Freelancer is not registered.");
         require(abi.encodePacked(managers[_manager]).length > 0, "Manager is not registered.");
