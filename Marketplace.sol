@@ -56,7 +56,6 @@ contract Marketplace {
     Token token;
 
     uint last_task_id;
-    // bool has_been_minted = false;
     event MarketplaceCreated();
     event FundingTask();
 
@@ -74,11 +73,7 @@ contract Marketplace {
         task_state_names[TaskState.Canceled] = "Canceled";
 
         emit MarketplaceCreated();
-
-        // if (!has_been_minted){
-            // has_been_minted = true;
         token.mint_account(address(this), 5000);
-        // }
     }
 
     function create_task(
@@ -160,12 +155,14 @@ contract Marketplace {
         managers[manager] = Manager(manager);
 
         token.mint_account(manager, 1000);
+        token.approve(manager, 10000);
     }
 
     function add_evaluator(address evaluator) public {
         evaluators[evaluator] = Evaluator(evaluator);
 
         token.mint_account(evaluator, 1000);
+        token.approve(evaluator, 10000);
     }
 
     function add_funder(address funder) public {
@@ -221,7 +218,7 @@ contract Marketplace {
     ) public {
         require(tasks[task_id].state == TaskState.Open, "Task is not in OPEN state.");
         require(abi.encodePacked(managers[manager]).length > 0, "Manager is not registered.");
-        require(tasks[task_id].manager == managers[manager], "Caller manager is not the same as the task manager.");
+        require(address(tasks[task_id].manager) == manager, "Caller manager is not the same as the task manager.");
         require(abi.encodePacked(evaluators[evaluator]).length > 0, "Evaluator does not exist.");
         require(keccak256(abi.encodePacked(evaluators[evaluator].get_expertise_category())) == keccak256(abi.encodePacked(tasks[task_id].domain)), "Evaluator expertise and task domain are different.");
 
@@ -251,7 +248,7 @@ contract Marketplace {
         require(tasks[task_id].state == TaskState.Open, "Task is not in OPEN state.");
         require(abi.encodePacked(freelancers[_freelancer]).length > 0, "Freelancer is not registered.");
         require(abi.encodePacked(managers[_manager]).length > 0, "Manager is not registered.");
-        require(tasks[task_id].manager == managers[_manager], "Caller manager is not the same as the task manager.");
+        require(address(tasks[task_id].manager) == _manager, "Caller manager is not the same as the task manager.");
 
         bool found_subscribed_freelancer = false;
         for (uint i=0; i<subscribed_freelancers[task_id].length; i++){
@@ -296,14 +293,14 @@ contract Marketplace {
         require(address(tasks[task_id].manager) == _manager, "The task cannot be evaluated by this manager!");
 
         if (verdict == true) {
-            handle_task_arbitration_success(task_id);
+            handle_task_arbitration_success(task_id, _manager);
         } 
         else {
             tasks[task_id].state = TaskState.Arbitration;
         }
     }
 
-    function handle_task_evaluation_success(uint task_id) private {        
+    function handle_task_evaluation_success(uint task_id, address _manager) private {        
         // mark task.state as Success
         // pay freelancer_reward + evaluator_reward + freelancer_guarantee to the freelancer
         // increase freelancer reputation
@@ -326,13 +323,13 @@ contract Marketplace {
         require(address(tasks[task_id].evaluator) == _evaluator, "The task cannot be evaluated by this evaluator!");
 
         if (verdict == true) {
-            handle_task_arbitration_success(task_id);
-        } 
-
-        handle_task_arbitration_fail(task_id);
+            handle_task_arbitration_success(task_id, _evaluator);
+        } else {
+            handle_task_arbitration_fail(task_id, _evaluator);
+        }
     }
 
-    function handle_task_arbitration_success(uint task_id) private {
+    function handle_task_arbitration_success(uint task_id, address manager_or_evaluator) private {
         // send freelancer_reward + guarantee to freelancer
         // increase freelancer reputation
         // send evaluator_reward to evaluator
@@ -348,7 +345,7 @@ contract Marketplace {
         tasks[task_id].executor_freelancer.increase_reputation();
     }
 
-    function handle_task_arbitration_fail(uint task_id) private {
+    function handle_task_arbitration_fail(uint task_id, address evaluator) private {
         // return freelancer_reward + evaluator_reward to funders
         // decrease freelancer reputation
         // send freelancer guarantee to evaluator

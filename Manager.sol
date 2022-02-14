@@ -3,8 +3,13 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 import "./Marketplace.sol";
+import "./Token.sol";
 
 contract Manager {
+    constructor (address marketplace, address token) {
+        Token(token).approve(marketplace, 10000);
+    }
+
     function create_task(
         address marketplace, 
         string calldata description,

@@ -4,31 +4,34 @@ pragma solidity >=0.7.0 <0.9.0;
 
 import "./Marketplace.sol";
 import "./Manager.sol";
+import "./Token.sol";
 
 contract Freelancer {
     string name;
     string expertise_category;
     uint reputation;
-    address marketplace;
+    Marketplace marketplace;
 
     constructor(string memory _name,
         string memory _expertise_category,
-        address _marketplace
+        address _marketplace,
+        address token
     ) {
         name = _name;
         expertise_category = _expertise_category;
         reputation = 5;
-        marketplace = _marketplace;
-        Marketplace(marketplace).add_freelancer(address(this));
+        marketplace = Marketplace(_marketplace);
+        marketplace.add_freelancer(address(this));
+        Token(token).approve(_marketplace, 100000);
     }
     
     function subscribe_to_task(uint task_id) public {
-        Marketplace(marketplace).subscribe_freelancer_to_task(task_id, (address(this)));
+        marketplace.subscribe_freelancer_to_task(task_id, (address(this)));
     }
 
-    function notify_manager(uint task_id, address _manager) public {
+    function notify_manager(address _marketplace, uint task_id, address _manager) public {
         Manager manager = Manager(_manager);
-        manager.mark_task_as_ready_for_evaluation(task_id, address(this));
+        manager.mark_task_as_ready_for_evaluation(_marketplace, task_id, address(this));
     }
 
     function increase_reputation() public {
