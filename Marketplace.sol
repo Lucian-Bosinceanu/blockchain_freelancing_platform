@@ -34,25 +34,23 @@ struct Task {
     uint256 evaluator_reward;
     string domain;
 
-    // maybe use mapping here
-    FunderContribution[] funders;
-
     Manager manager;
     Evaluator evaluator;
     Freelancer executor_freelancer;
-    mapping(address => Freelancer) subscribed_freelancers;
     address[] freelancer_addresses;
 }
 
 contract Marketplace {
     mapping(uint => Task) tasks;
     mapping(TaskState => string) task_state_names;
-
+    uint[] task_ids;
     mapping(address => Freelancer) freelancers;
     address[] freelancers_addresses;
     mapping(address => Manager) managers;
     mapping(address => Evaluator) evaluators;
     mapping(address => Funder) funders;
+    mapping(uint => FunderContribution[]) funder_contributions;
+    mapping(uint => address[]) subscribed_freelancers; // task id -> []freelancer address
 
     Token token;
 
@@ -92,15 +90,14 @@ contract Marketplace {
         task.evaluator_reward = evaluator_reward;
         task.is_present = true;
 
+        task_ids.push(last_task_id);
         return last_task_id;
     }
 
-    function list_task_with_id(uint id) public view {
-        require(tasks[id].is_present == true, "There is no task with this id!");
+    function console_log_task(uint id) private view {
         console.log(string(abi.encodePacked("Status: ", task_state_names[tasks[id].state])));
         console.log(string(abi.encodePacked("Domain: ", tasks[id].domain)));
         console.log(string(abi.encodePacked("Description: ", tasks[id].description)));
-        
         console.log("Freelancer Reward: ");
         console.log(tasks[id].freelancer_reward);
 
@@ -108,26 +105,22 @@ contract Marketplace {
         console.log(tasks[id].evaluator_reward);
     }
 
-    // function list_tasks() public returns (Task[] memory) {
-    //     Task[] memory task_values;
-    //     for (uint i = 0; i < tasks_ids.length; i++){
-    //         Task memory current_task = tasks[tasks_ids[i]];
-    //         task_values.push(Task({
-    //             task_id: current_task.task_id,
-    //             state: current_task.state,
-    //             description: current_task.description,
-    //             domain: current_task.domain,
-    //             manager: current_task.manager,
-    //             freelancer_reward: current_task.freelancer_reward,
-    //             evaluator_reward: current_task.evaluator_reward,
-    //             funders: current_task.funders,
-    //             evaluator: current_task.evaluator,
-    //             executor_freelancer: current_task.executor_freelancer,
-    //             subscribed_freelancers: current_task.subscribed_freelancers
-    //         }));
-    //     }
-    //     return task_values;
-    // }
+    function list_task_with_id(uint id) public view returns (Task memory){
+        require(tasks[id].is_present == true, "There is no task with this id!");
+        console_log_task(id);
+        return tasks[id];
+    }
+
+    function list_tasks() public view returns (Task[] memory) {
+        Task[] memory task_values = new Task[](task_ids.length);
+        for (uint i = 0; i < task_ids.length; i++){
+            Task memory current_task = tasks[task_ids[i]];
+            task_values[i] = current_task;
+            console_log_task(task_ids[i]);
+            console.log("\n");
+        }
+        return task_values;
+    }
 
     function add_freelancer(address freelancer) public {
         require(freelancers[freelancer] == Freelancer(address(0x0)), "Freelancer already registered.");
@@ -177,8 +170,8 @@ contract Marketplace {
 
         uint payover = 0;
         uint totalContributions = 0;
-        for (uint i=0; i < task.funders.length; i++) {
-            totalContributions += task.funders[i].sum;
+        for (uint i=0; i < funder_contributions[task_id].length; i++) {
+            totalContributions += funder_contributions[task_id][i].sum;
         }
 
         if (totalContributions >= (task.freelancer_reward + task.evaluator_reward)) {
@@ -198,7 +191,7 @@ contract Marketplace {
         }
 
         FunderContribution memory contribution = FunderContribution({sum: sum - payover, funder: funders[funder]});
-        task.funders.push(contribution);
+        funder_contributions[task_id].push(contribution);
         // token.transferFrom(funder, address(this), task.freelancer_reward);
     }
 
@@ -225,7 +218,7 @@ contract Marketplace {
             require(token.balanceOf(freelancer) > tasks[task_id].evaluator_reward, "The freelancer does not have enough tokens for the guarantee");
             require(keccak256(abi.encodePacked(freelancers[freelancer].get_expertise_category())) == keccak256(abi.encodePacked(tasks[task_id].domain)), "Freelancer expertise and task domain are different.");
 
-            tasks[task_id].subscribed_freelancers[freelancer] = freelancers[freelancer];
+            subscribed_freelancers[task_id].push(freelancer);
             tasks[task_id].freelancer_addresses.push(freelancer);
             token.transferFrom(freelancer, address(this), tasks[task_id].evaluator_reward);
         }
@@ -240,7 +233,15 @@ contract Marketplace {
         require(abi.encodePacked(freelancers[_freelancer]).length > 0, "Freelancer is not registered.");
         require(abi.encodePacked(managers[_manager]).length > 0, "Manager is not registered.");
         require(tasks[task_id].manager == managers[_manager], "Caller manager is not the same as the task manager.");
-        require(tasks[task_id].subscribed_freelancers[_freelancer] == freelancers[_freelancer], "Chosen freelancer is not subscribed to task.");
+
+        bool found_subscribed_freelancer = false;
+        for (uint i=0; i<subscribed_freelancers[task_id].length; i++){
+            if (subscribed_freelancers[task_id][i] == _freelancer){
+                found_subscribed_freelancer=true;
+                break;
+            }
+        }
+        require(found_subscribed_freelancer, "Chosen freelancer is not subscribed to task.");
 
         tasks[task_id].state = TaskState.Executing;
         tasks[task_id].executor_freelancer = freelancers[_freelancer];
@@ -340,13 +341,15 @@ contract Marketplace {
         uint256 evaluator_reward = tasks[task_id].evaluator_reward;
         token.transferFrom(address(this), address(tasks[task_id].evaluator), evaluator_reward);
 
-        uint fundersLength = tasks[task_id].funders.length;
+        uint fundersLength = funder_contributions[task_id].length;
+        FunderContribution memory funder_contribution;
 
         for (uint i=0; i < fundersLength; i++) {
+            funder_contribution = funder_contributions[task_id][i];
             token.transferFrom(
                 address(this), 
-                address(tasks[task_id].funders[i].funder), 
-                tasks[task_id].funders[i].sum
+                address(funder_contribution.funder), 
+                funder_contribution.sum
                 );
         }
     }
@@ -362,13 +365,15 @@ contract Marketplace {
         // return contributions back to funders
         // mark task as Canceled
 
-        uint fundersLength = tasks[task_id].funders.length;
+        uint fundersLength = funder_contributions[task_id].length;
+        FunderContribution memory funder_contribution;
 
         for (uint i=0; i < fundersLength; i++) {
+            funder_contribution = funder_contributions[task_id][i];
             token.transferFrom(
                 address(this), 
-                address(tasks[task_id].funders[i].funder), 
-                tasks[task_id].funders[i].sum
+                address(funder_contribution.funder), 
+                funder_contribution.sum
                 );
         }
 
