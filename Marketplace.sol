@@ -74,6 +74,7 @@ contract Marketplace {
 
         emit MarketplaceCreated();
         token.mint_account(address(this), 5000);
+        token.approve(address(this), 10000);
     }
 
     function create_task(
@@ -155,14 +156,14 @@ contract Marketplace {
         managers[manager] = Manager(manager);
 
         token.mint_account(manager, 1000);
-        token.approve(manager, 10000);
+        token.approve(address(this), 10000);
     }
 
     function add_evaluator(address evaluator) public {
         evaluators[evaluator] = Evaluator(evaluator);
 
         token.mint_account(evaluator, 1000);
-        token.approve(evaluator, 10000);
+        token.approve(address(this), 10000);
     }
 
     function add_funder(address funder) public {
@@ -293,7 +294,7 @@ contract Marketplace {
         require(address(tasks[task_id].manager) == _manager, "The task cannot be evaluated by this manager!");
 
         if (verdict == true) {
-            handle_task_arbitration_success(task_id, _manager);
+            handle_task_evaluation_success(task_id, _manager);
         } 
         else {
             tasks[task_id].state = TaskState.Arbitration;
@@ -324,7 +325,7 @@ contract Marketplace {
 
         if (verdict == true) {
             handle_task_arbitration_success(task_id, _evaluator);
-        } else {
+        } else{
             handle_task_arbitration_fail(task_id, _evaluator);
         }
     }
