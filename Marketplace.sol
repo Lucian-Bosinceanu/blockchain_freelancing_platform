@@ -109,7 +109,6 @@ contract Marketplace {
         console.log(string(abi.encodePacked("Description: ", tasks[id].description)));
         console.log("Freelancer Reward: ");
         console.log(tasks[id].freelancer_reward);
-
         console.log("Evaluator Reward: ");
         console.log(tasks[id].evaluator_reward);
 
@@ -118,7 +117,6 @@ contract Marketplace {
         for (uint i=0; i<funder_contributions[id].length; i++){
             total_funds += funder_contributions[id][i].sum;
         }
-        
         console.log("Total funding so far: ");
         console.log(total_funds);
     }
@@ -208,6 +206,12 @@ contract Marketplace {
         console.log(sum - payover);
         token.transferFrom(funder, address(this), sum - payover);
         funder_contributions[task_id].push(contribution);
+
+        if (totalContributions + sum >= (task.freelancer_reward + task.evaluator_reward)
+            && tasks[task_id].state != TaskState.Open){
+            // Task can now be open
+            tasks[task_id].state = TaskState.Open;
+        }
     }
 
     function assign_evaluator(
