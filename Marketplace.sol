@@ -40,6 +40,7 @@ struct Task {
     address[] freelancer_addresses;
 }
 
+
 contract Marketplace {
     mapping(uint => Task) tasks;
     mapping(TaskState => string) task_state_names;
@@ -55,6 +56,9 @@ contract Marketplace {
     Token token;
 
     uint last_task_id;
+    // bool has_been_minted = false;
+    event MarketplaceCreated();
+    event FundingTask();
 
     constructor(address _token) {
         last_task_id = 0;
@@ -69,7 +73,12 @@ contract Marketplace {
         task_state_names[TaskState.Fail] = "Fail";
         task_state_names[TaskState.Canceled] = "Canceled";
 
+        emit MarketplaceCreated();
+
+        // if (!has_been_minted){
+            // has_been_minted = true;
         token.mint_account(address(this), 5000);
+        // }
     }
 
     function create_task(
@@ -171,7 +180,7 @@ contract Marketplace {
         uint task_id,
         address funder,
         uint256 sum
-    ) public payable{
+    ) public {
         Task storage task = tasks[task_id];
         require(tasks[task_id].is_present == true, "Task not found!");
         require(tasks[task_id].state == TaskState.Funding, "The task can no longer be funded.");
@@ -188,12 +197,15 @@ contract Marketplace {
             // already done
         }
 
-        if (sum > (task.freelancer_reward + task.evaluator_reward)) {
+        if (totalContributions + sum > (task.freelancer_reward + task.evaluator_reward)) {
             // need to send some tokens back to the funder
-            payover = sum - (task.freelancer_reward + task.evaluator_reward);
+            payover = totalContributions + sum - (task.freelancer_reward + task.evaluator_reward);
         }
 
+        emit FundingTask();
         FunderContribution memory contribution = FunderContribution({sum: sum - payover, funder: funders[funder]});
+        console.log("Sending money...");
+        console.log(sum - payover);
         token.transferFrom(funder, address(this), sum - payover);
         funder_contributions[task_id].push(contribution);
     }
