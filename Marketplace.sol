@@ -103,6 +103,15 @@ contract Marketplace {
 
         console.log("Evaluator Reward: ");
         console.log(tasks[id].evaluator_reward);
+
+        // compute total fundings
+        uint256 total_funds = 0;
+        for (uint i=0; i<funder_contributions[id].length; i++){
+            total_funds += funder_contributions[id][i].sum;
+        }
+        
+        console.log("Total funding so far: ");
+        console.log(total_funds);
     }
 
     function list_task_with_id(uint id) public view returns (Task memory){
@@ -179,20 +188,14 @@ contract Marketplace {
             // already done
         }
 
-        // TODO
-        // Nu e okay de aici in jos
-        // consideram funding_goal = task.freelancer_reward + task.evaluator_reward
-        // daca totalContributions + sum este mai mare decat funding goal, atunci se transfera de la funder la markerplace funding_goal - totalContributions
-        // tot ce este peste funding_goal se va transfera inapoi catre funder
-
         if (sum > (task.freelancer_reward + task.evaluator_reward)) {
             // need to send some tokens back to the funder
             payover = sum - (task.freelancer_reward + task.evaluator_reward);
         }
 
         FunderContribution memory contribution = FunderContribution({sum: sum - payover, funder: funders[funder]});
+        token.transferFrom(funder, address(this), sum - payover);
         funder_contributions[task_id].push(contribution);
-        // token.transferFrom(funder, address(this), task.freelancer_reward);
     }
 
     function assign_evaluator(
